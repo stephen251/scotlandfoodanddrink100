@@ -1,97 +1,149 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scotland Food & Drink 100</title>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scotland Food and Drink 100</title>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/gridjs/dist/gridjs.umd.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/gridjs/dist/theme/mermaid.min.css" rel="stylesheet" />
-
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 32px;
-      color: #222;
-      background: #fff;
+      margin: 30px;
     }
-
-    .wrap {
-      max-width: 1400px;
-      margin: 0 auto;
-    }
-
     h1 {
-      margin-bottom: 8px;
+      margin-bottom: 20px;
     }
-
-    p {
-      margin-top: 0;
-      margin-bottom: 24px;
-      color: #555;
+    input {
+      margin-bottom: 15px;
+      padding: 10px;
+      width: 320px;
+      max-width: 100%;
+      font-size: 16px;
     }
-
-    .gridjs-td:first-child,
-    .gridjs-th:first-child {
-      font-weight: bold;
-      white-space: nowrap;
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background: #f4f4f4;
+      cursor: pointer;
+    }
+    tr:nth-child(even) {
+      background: #fafafa;
+    }
+    #status {
+      margin: 10px 0 20px;
+      color: #666;
+      font-size: 14px;
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>Scotland Food & Drink 100</h1>
-    <p>Search the ranked list of 100 companies.</p>
-    <div id="table"></div>
-  </div>
+  <h1>Scotland Food and Drink 100</h1>
+  <input type="text" id="searchInput" placeholder="Search table...">
+  <div id="status">Loading data...</div>
+  <table id="csvTable"></table>
 
   <script>
-    Papa.parse("food-drink-100.csv", {
+    const csvFile = "./food-drink-100.csv?v=2";
+    let tableData = [];
+    let filteredData = [];
+    let headers = [];
+    let sortDirection = {};
+
+    function renderTable(data) {
+      const table = document.getElementById("csvTable");
+      table.innerHTML = "";
+
+      if (!data || data.length === 0) {
+        table.innerHTML = "<tr><td>No data found</td></tr>";
+        return;
+      }
+
+      const thead = document.createElement("thead");
+      const headerRow = document.createElement("tr");
+
+      headers.forEach((header, index) => {
+        const th = document.createElement("th");
+        th.textContent = header;
+        th.addEventListener("click", () => sortTable(index));
+        headerRow.appendChild(th);
+      });
+
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+
+      data.forEach(row => {
+        const tr = document.createElement("tr");
+        headers.forEach(header => {
+          const td = document.createElement("td");
+          td.textContent = row[header] ?? "";
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+    }
+
+    function sortTable(columnIndex) {
+      const header = headers[columnIndex];
+      sortDirection[header] = !sortDirection[header];
+
+      filteredData.sort((a, b) => {
+        const valA = String(a[header] ?? "");
+        const valB = String(b[header] ?? "");
+        return sortDirection[header]
+          ? valA.localeCompare(valB, undefined, { numeric: true })
+          : valB.localeCompare(valA, undefined, { numeric: true });
+      });
+
+      renderTable(filteredData);
+    }
+
+    function filterTable(searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filteredData = tableData.filter(row =>
+        headers.some(header =>
+          String(row[header] ?? "").toLowerCase().includes(term)
+        )
+      );
+      renderTable(filteredData);
+      document.getElementById("status").textContent = `${filteredData.length} rows shown`;
+    }
+
+    Papa.parse(csvFile, {
       download: true,
       header: true,
       skipEmptyLines: true,
-      transformHeader: function(header) {
-        return header.trim().replace(/^\uFEFF/, "");
-      },
       complete: function(results) {
-        let data = results.data.filter(row =>
-          Object.values(row).some(v => String(v ?? "").trim() !== "")
-        );
-
-        if (!data.length) {
-          document.getElementById("table").innerHTML = "<p>No data found in CSV.</p>";
+        tableData = results.data || [];
+        if (tableData.length === 0) {
+          document.getElementById("status").textContent = "No rows found in CSV";
+          renderTable([]);
           return;
         }
 
-        // Get all column names exactly as parsed
-        const columns = Object.keys(data[0]);
-
-        // Use the rank column automatically if present
-        const rankColumn =
-          columns.find(col => col.toUpperCase() === "RANK") || columns[0];
-
-        data.sort((a, b) => {
-          const aVal = parseFloat(a[rankColumn]) || 0;
-          const bVal = parseFloat(b[rankColumn]) || 0;
-          return aVal - bVal;
-        });
-
-        const rows = data.map(row => columns.map(col => row[col]));
-
-        new gridjs.Grid({
-          columns: columns,
-          data: rows,
-          search: true,
-          sort: false,
-          pagination: false
-        }).render(document.getElementById("table"));
+        headers = Object.keys(tableData[0]);
+        filteredData = [...tableData];
+        renderTable(filteredData);
+        document.getElementById("status").textContent = `${filteredData.length} rows shown`;
       },
       error: function(err) {
-        document.getElementById("table").innerHTML =
-          "<p>Could not load the CSV file. Check filename and path.</p>";
-        console.error(err);
+        document.getElementById("status").textContent = "Error loading CSV: " + err.message;
       }
+    });
+
+    document.getElementById("searchInput").addEventListener("input", function() {
+      filterTable(this.value);
     });
   </script>
 </body>
