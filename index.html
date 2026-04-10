@@ -1,44 +1,98 @@
-<script>
-  Papa.parse("food-drink-100.csv", {
-    download: true,
-    header: true,
-    skipEmptyLines: true,
-    complete: function(results) {
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scotland Food & Drink 100</title>
 
-      let data = results.data.filter(row =>
-        Object.values(row).some(v => String(v ?? "").trim() !== "")
-      );
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gridjs/dist/gridjs.umd.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/gridjs/dist/theme/mermaid.min.css" rel="stylesheet" />
 
-      if (!data.length) {
-        document.getElementById("table").innerHTML = "<p>No data found in CSV.</p>";
-        return;
-      }
-
-      // IMPORTANT: match your exact column name (case sensitive)
-      const rankColumn = "RANK";
-
-      // Sort by RANK
-      data.sort((a, b) => Number(a[rankColumn]) - Number(b[rankColumn]));
-
-      // Automatically get ALL columns from CSV
-      const columns = Object.keys(data[0]);
-
-      const rows = data.map(row =>
-        columns.map(col => row[col])
-      );
-
-      new gridjs.Grid({
-        columns: columns,
-        data: rows,
-        search: true,       // ✅ keep search
-        sort: false,        // 🔒 lock order to RANK
-        pagination: false   // full Top 100 view
-      }).render(document.getElementById("table"));
-    },
-    error: function(err) {
-      document.getElementById("table").innerHTML =
-        "<p>Could not load the CSV file. Check filename and path.</p>";
-      console.error(err);
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 32px;
+      color: #222;
+      background: #fff;
     }
-  });
-</script>
+
+    .wrap {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin-bottom: 8px;
+    }
+
+    p {
+      margin-top: 0;
+      margin-bottom: 24px;
+      color: #555;
+    }
+
+    .gridjs-td:first-child,
+    .gridjs-th:first-child {
+      font-weight: bold;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Scotland Food & Drink 100</h1>
+    <p>Search the ranked list of 100 companies.</p>
+    <div id="table"></div>
+  </div>
+
+  <script>
+    Papa.parse("food-drink-100.csv", {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: function(header) {
+        return header.trim().replace(/^\uFEFF/, "");
+      },
+      complete: function(results) {
+        let data = results.data.filter(row =>
+          Object.values(row).some(v => String(v ?? "").trim() !== "")
+        );
+
+        if (!data.length) {
+          document.getElementById("table").innerHTML = "<p>No data found in CSV.</p>";
+          return;
+        }
+
+        // Get all column names exactly as parsed
+        const columns = Object.keys(data[0]);
+
+        // Use the rank column automatically if present
+        const rankColumn =
+          columns.find(col => col.toUpperCase() === "RANK") || columns[0];
+
+        data.sort((a, b) => {
+          const aVal = parseFloat(a[rankColumn]) || 0;
+          const bVal = parseFloat(b[rankColumn]) || 0;
+          return aVal - bVal;
+        });
+
+        const rows = data.map(row => columns.map(col => row[col]));
+
+        new gridjs.Grid({
+          columns: columns,
+          data: rows,
+          search: true,
+          sort: false,
+          pagination: false
+        }).render(document.getElementById("table"));
+      },
+      error: function(err) {
+        document.getElementById("table").innerHTML =
+          "<p>Could not load the CSV file. Check filename and path.</p>";
+        console.error(err);
+      }
+    });
+  </script>
+</body>
+</html>
