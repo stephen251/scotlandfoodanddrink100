@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scotland Food & Drink 100</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gridjs/dist/gridjs.umd.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/gridjs/dist/theme/mermaid.min.css" rel="stylesheet" />
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 32px;
+      color: #222;
+      background: #fff;
+    }
+
+    .wrap {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin-bottom: 8px;
+    }
+
+    p {
+      margin-top: 0;
+      margin-bottom: 24px;
+      color: #555;
+    }
+
+    .gridjs-td:first-child {
+      font-weight: bold;
+      width: 90px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Scotland Food & Drink 100</h1>
+    <p>Search the ranked list of 100 companies.</p>
+    <div id="table"></div>
+  </div>
+
+  <script>
+    Papa.parse("food-drink-100.csv", {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: function(results) {
+        let data = results.data.filter(row =>
+          Object.values(row).some(v => String(v ?? "").trim() !== "")
+        );
+
+        if (!data.length) {
+          document.getElementById("table").innerHTML = "<p>No data found in CSV.</p>";
+          return;
+        }
+
+        // Change these if your CSV uses different headers
+        const rankColumn = "Rank";
+        const companyColumn = "Company";
+
+        data.sort((a, b) => Number(a[rankColumn]) - Number(b[rankColumn]));
+
+        const rows = data.map(row => [
+          row[rankColumn],
+          row[companyColumn]
+        ]);
+
+        new gridjs.Grid({
+          columns: ["Rank", "Company"],
+          data: rows,
+          search: {
+            enabled: true,
+            selector: (cell, rowIndex, cellIndex) => cellIndex === 1 ? cell : null
+          },
+          sort: false,
+          pagination: false
+        }).render(document.getElementById("table"));
+      },
+      error: function(err) {
+        document.getElementById("table").innerHTML =
+          "<p>Could not load the CSV file. Check the filename and path.</p>";
+        console.error(err);
+      }
+    });
+  </script>
+</body>
+</html>
